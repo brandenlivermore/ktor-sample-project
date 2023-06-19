@@ -19,21 +19,6 @@ export class InfraStack extends cdk.Stack {
           directory: path.join(__dirname, '../../Docker'),
         });
 
-        // Create an ECR repository
-        const repository = new ecr.Repository(this, 'Service-builds', {
-          removalPolicy: cdk.RemovalPolicy.DESTROY,
-          imageScanOnPush: true,
-        });
-
-        repository.addLifecycleRule({
-          tagStatus: TagStatus.ANY,
-          maxImageCount: 10
-        });
-        repository.addLifecycleRule({
-          tagStatus: TagStatus.UNTAGGED,
-          maxImageAge: Duration.days(1),
-        });
-
         const autoscalingConfiguration = new autoscaling.AppRunnerAutoScaling(this, 'app');
 
         const appRunnerRole = new iam.Role(
@@ -42,41 +27,43 @@ export class InfraStack extends cdk.Stack {
           {
             assumedBy: new iam.ServicePrincipal("build.apprunner.amazonaws.com"),
             description: `${this.stackName}-apprunner-role`,
-            inlinePolicies: {
-              "kotlintest-apprunner-policy": new iam.PolicyDocument({
-                statements: [
-                  new iam.PolicyStatement({
-                    effect: iam.Effect.ALLOW,
-                    actions: ["ecr:GetAuthorizationToken"],
-                    resources: ["*"],
-                  }),
-                  new iam.PolicyStatement({
-                    effect: iam.Effect.ALLOW,
-                    actions: [
-                      "ecr:BatchCheckLayerAvailability",
-                      "ecr:GetDownloadUrlForLayer",
-                      "ecr:GetRepositoryPolicy",
-                      "ecr:DescribeRepositories",
-                      "ecr:ListImages",
-                      "ecr:DescribeImages",
-                      "ecr:BatchGetImage",
-                      "ecr:GetLifecyclePolicy",
-                      "ecr:GetLifecyclePolicyPreview",
-                      "ecr:ListTagsForResource",
-                      "ecr:DescribeImageScanFindings",
-                    ],
-                    resources: [
-                      repository.repositoryArn
-                    ],
-                  }),
-                ],
-              }),
-            },
+            // inlinePolicies: {
+            //   "kotlintest-apprunner-policy": new iam.PolicyDocument({
+            //     statements: [
+            //       new iam.PolicyStatement({
+            //         effect: iam.Effect.ALLOW,
+            //         actions: ["ecr:GetAuthorizationToken"],
+            //         resources: ["*"],
+            //       }),
+            //       new iam.PolicyStatement({
+            //         effect: iam.Effect.ALLOW,
+            //         actions: [
+            //           "ecr:BatchCheckLayerAvailability",
+            //           "ecr:GetDownloadUrlForLayer",
+            //           "ecr:GetRepositoryPolicy",
+            //           "ecr:DescribeRepositories",
+            //           "ecr:ListImages",
+            //           "ecr:DescribeImages",
+            //           "ecr:BatchGetImage",
+            //           "ecr:GetLifecyclePolicy",
+            //           "ecr:GetLifecyclePolicyPreview",
+            //           "ecr:ListTagsForResource",
+            //           "ecr:DescribeImageScanFindings",
+            //         ],
+            //         // resources: [
+            //         //   repository.repositoryArn
+            //         // ],
+            //       }),
+            //     ],
+            //   }),
+            // },
           }
         );
 
+        appRunnerRole.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSAppRunnerServicePolicyForECRAccess"));
+
         // Push the Docker image to the ECR repository
-        imageAsset.repository = repository;
+        //imageAsset.repository = repository;
 
         const cfnService = new apprunner.CfnService(this, 'Service', {
           sourceConfiguration: {
